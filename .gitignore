@@ -1,0 +1,21 @@
+# 환경변수 파일 (API 키 포함)
+.env*
+
+# 설정 파일
+settings.json
+
+# 생성된 글 파일들
+generated_posts/
+*.txt
+
+# Python 캐시
+__pycache__/
+*.pyc
+*.pyo
+
+# 로그 파일
+*.log
+
+dist
+build
+BlogGenerator_Distribution
