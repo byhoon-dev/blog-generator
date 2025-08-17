@@ -21,7 +21,8 @@
 ### 2. GEMINI
 
 [Google AI Studio](https://aistudio.google.com/) 접속 후 API KEY 를 생성합니다. <br>
-GEMINI API 사용은 유료 서비스입니다. 하지만 무료 티어가 상당히 많아 비용 들어갈 일은 거의 없습니다. 현재 유료도 100만 토큰당 0.3 달러 입니다. <br>
+GEMINI API 사용은 유료 서비스입니다. 하지만 무료 티어 사용량을 보고 적당히 사용하면 과금이 될 일은 없습니다.<br>
+무료로도 하루에 필요한 블로그 글 생성하는데는 문제가 없고 현재 유료도 100만 토큰당 0.3 달러 입니다. <br>
 1토큰이 대략 한글 한글자(정확히 일치하진 않습니다) 라고 생각하면 되는데 많이 쓴다고 해도 단순 텍스트 생성에 과금이 많지 않습니다. <br>
 
 ![Google AI Studio](./img/gemini.png)
@@ -108,7 +109,7 @@ pip install -r requirements.txt
 pyinstaller --onefile --windowed --name=BlogGenerator blog_generator.py
 ```
 
-## 업데이트 예정
+## 알려드립니다
 제가 실제 블로그 운영자가 아니다 보니 사용하시면서 불편하시거나 아쉬운 부분이 있을 수 있습니다. <br>
 개선이 필요하다고 느끼신 점이 있다면 아래 메일로 피드백을 보내주시면 감사하겠습니다. <br>
 📩 bhoon.dev@gmail.com <br>

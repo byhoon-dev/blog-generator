@@ -149,7 +149,7 @@ class TitleGenerateWorker(QThread):
             data = {"contents": [{"parts": [{"text": prompt}]}]}
 
             response = requests.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
                 headers=headers,
                 json=data,
             )
