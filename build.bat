@@ -10,7 +10,7 @@ echo.
 echo exe 파일 생성 중...
 
 REM PyInstaller로 exe 생성
-pyinstaller --onefile --windowed --name=BlogGenerator --add-data=".env.example;." --hidden-import=requests --hidden-import=PyQt5 --hidden-import=PyQt5.QtCore --hidden-import=PyQt5.QtWidgets --hidden-import=PyQt5.QtGui blog_generator.py
+pyinstaller --onefile --windowed --name=BlogGenerator --hidden-import=requests --hidden-import=PyQt5 --hidden-import=PyQt5.QtCore --hidden-import=PyQt5.QtWidgets --hidden-import=PyQt5.QtGui blog_generator.py
 
 echo.
 echo 배포용 폴더 생성 중...

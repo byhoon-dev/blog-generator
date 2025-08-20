@@ -16,6 +16,14 @@ __pycache__/
 # 로그 파일
 *.log
 
-dist
-build
-BlogGenerator_Distribution
+# 브라우저 사용자 데이터 (더 이상 사용 안함)
+chrome_user_data/
+
+# Chrome 관련 (더 이상 사용 안함)
+chrome/
+chrome_temp/
+
+# 빌드 관련
+dist/
+build/
+BlogGenerator_Distribution/
