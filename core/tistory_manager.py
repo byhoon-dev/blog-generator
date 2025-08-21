@@ -17,65 +17,58 @@ from webdriver_manager.chrome import ChromeDriverManager
 class TistoryManager:
     """티스토리 관리 클래스"""
 
-    def __init__(self, use_profile=True):
+    def __init__(self, use_profile=False):  # 배포용 기본값 False
         self.driver = None
         self.is_logged_in = False
-        # 배포 시 삭제 시작
-        self.use_profile = use_profile  # 프로필 사용 여부
-        # 배포 시 삭제 끝
+        self.use_profile = use_profile
 
-    def setup_driver(self, use_profile=True):
-        """Chrome 드라이버 설정 - 시스템 Chrome 사용"""
+    def setup_driver(self, use_profile=False):  # 배포시 기본값을 False로 변경
+        """Chrome 드라이버 설정 - 배포용 최적화"""
         try:
             chrome_options = Options()
-            # 기본 옵션 설정
+            
+            # 배포용 안정성 옵션
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--disable-extensions")
+            chrome_options.add_argument("--disable-plugins")
+            chrome_options.add_argument("--disable-images")
+            chrome_options.add_argument("--disable-background-timer-throttling")
+            chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+            chrome_options.add_argument("--disable-renderer-backgrounding")
+            chrome_options.add_argument("--disable-features=TranslateUI")
+            chrome_options.add_argument("--disable-ipc-flooding-protection")
             
-            # 개발 모드에서만 프로필 사용 (배포 시 삭제 또는 False로 설정)
-            # 배포 시 삭제 시작 - 아래 if 블록 전체 삭제
-            if use_profile:
-                # 사용자 프로필 디렉토리 설정
-                user_data_dir = os.path.join(os.path.expanduser("~"), "AppData", "Local", "Google", "Chrome", "User Data", "BlogGenerator")
-                os.makedirs(user_data_dir, exist_ok=True)
-                chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
-                
-                self.driver = webdriver.Chrome(options=chrome_options)
-                print(f"🔄 Chrome 프로필 사용: {user_data_dir}")
-
-                print("🔄 시스템 Chrome 사용 시도...")
-                return True
-            # 배포 시 삭제 끝
-
-            # 1순위: webdriver-manager로 자동 다운로드 (가장 안정적)
+            # 메모리 최적화
+            chrome_options.add_argument("--memory-pressure-off")
+            chrome_options.add_argument("--max_old_space_size=4096")
+            
+            # 배포용: 프로필 사용 안함 (일관된 환경)
+            # chrome_options.add_argument("--incognito")  # 시크릿 모드로 실행
+            
+            # 1순위: webdriver-manager로 자동 다운로드 (배포용 최적)
             try:
                 service = Service(ChromeDriverManager().install())
                 self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                print("✅ Chrome 드라이버 자동 다운로드 성공")
+                print("✅ Chrome 드라이버 자동 설정 완료")
                 return True
             except Exception as e:
-                print(f"⚠️ 자동 다운로드 실패: {e}")
-
-            # 2순위: 시스템 Chrome 사용 (PATH에 chromedriver가 있는 경우)
+                print(f"⚠️ 자동 설정 실패: {e}")
+    
+            # 2순위: 시스템 Chrome 사용
             try:
                 self.driver = webdriver.Chrome(options=chrome_options)
                 print("✅ 시스템 Chrome 사용 성공")
                 return True
             except Exception as e:
                 print(f"⚠️ 시스템 Chrome 실패: {e}")
-
-            # 3순위: Chrome 설치 안내 후 기본 브라우저 사용
-            print("❌ Chrome을 찾을 수 없습니다.")
-            print("💡 Chrome 브라우저를 설치해주세요:")
-            print("   https://www.google.com/chrome/")
-            print("")
-            print("🔄 기본 브라우저로 대체 실행...")
-
-            # 모든 방법 실패
-            print("❌ 브라우저를 열 수 없습니다.")
-            print("💡 Chrome 설치 후 다시 시도하세요: https://www.google.com/chrome/")
+    
+            # 실패 시 안내
+            print("❌ Chrome 브라우저를 찾을 수 없습니다.")
+            print("💡 Chrome 브라우저를 설치해주세요: https://www.google.com/chrome/")
             return False
-
+    
         except Exception as e:
             print(f"드라이버 설정 오류: {e}")
             return False
@@ -99,66 +92,56 @@ class TistoryManager:
     def go_to_write_page(self):
         # 현재 창 개수 저장
         initial_window_count = len(self.driver.window_handles)
-        
-        """글쓰기 버튼 클릭"""
+
+        # 글쓰기 버튼 클릭 해 글 작성 페이지로 이동
         try:
-            try:
-                # 알림창 처리 - 타임아웃 증가 및 명시적 처리
-                try:
-                    # 알림창이 있는지 확인 (타임아웃 3초로 설정)
-                    alert = WebDriverWait(self.driver, 3).until(EC.alert_is_present())
-                    print("⚠️ 알림창 발견, 닫는 중...")
-                    # 알림창 텍스트 출력
-                    alert_text = alert.text
-                    print(f"알림창 내용: {alert_text}")
-                    # 알림창 닫기
-                    alert.dismiss()
-                    print("✅ 알림창 닫기 완료")
-                except Exception as e:
-                    print("ℹ️ 알림창 없음, 계속 진행합니다.")
-                    pass
-
-                # 현재 페이지에서 글쓰기 버튼 찾기 (타임아웃 5초로 단축)
-                print("📝 글쓰기 버튼 찾는 중...")
-                write_buttons = WebDriverWait(self.driver, 5).until(
-                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".wrap_link .link_tab"))
-                )
-                
-                if write_buttons:
-                    # 첫 번째 버튼이 글쓰기 버튼
-                    write_button = write_buttons[0]
-                    print("📝 글쓰기 버튼 발견, 클릭 중...")
-                    write_button.click()
-                    time.sleep(3)
-                
-                    print("✅ 글쓰기 페이지로 이동 완료")
-
-                    return True
-                else:
-                    print("⚠️ 글쓰기 버튼을 찾을 수 없습니다.")
-                    return False
-                    
-            except Exception as e:
-                print(f"⚠️ 글쓰기 버튼 클릭 실패: {e}")
+            print("📝 글쓰기 버튼 찾는 중...")
+            write_buttons = self.driver.find_elements(By.CSS_SELECTOR, ".wrap_link .link_tab")
+            if write_buttons:
+                # 첫 번째 버튼이 글쓰기 버튼
+                write_button = write_buttons[0]
+                print("📝 글쓰기 버튼 발견, 클릭 중...")
+                write_button.click()
+                time.sleep(3)
+            
+                print("✅ 글쓰기 페이지로 이동 완료")
+            else:
+                print("⚠️ 글쓰기 버튼을 찾을 수 없습니다.")
                 return False
-                
         except Exception as e:
-            print(f"글쓰기 버튼 클릭 오류: {e}")
+            print("⚠️ 글쓰기 버튼을 찾을 수 없습니다.")
             return False
+        
+        # 새창 뜰때까지 대기
+        try:
+            WebDriverWait(self.driver, 10).until(
+                lambda driver: len(driver.window_handles) > initial_window_count
+            )
+
+            new_window = self.driver.window_handles[-1]
+            self.driver.switch_to.window(new_window)
+        except Exception as e:
+            print(f"⚠️ 새창 찾기 실패: {e}")
+            return False
+
+        try:
+            # 알림창이 있는지 확인
+            alert = WebDriverWait(self.driver, 3).until(EC.alert_is_present())
+            print("⚠️ 알림창 발견, 닫는 중...")
+            # 알림창 텍스트 출력
+            alert_text = alert.text
+            print(f"알림창 내용: {alert_text}")
+            # 알림창 닫기
+            alert.dismiss()
+            print("✅ 알림창 닫기 완료")
+        except Exception as e:
+            print("ℹ️ 알림창 없음, 계속 진행합니다.")
+            pass
 
     def write_post(self, title, content, category=""):
         """글 작성 - 자동 입력 시도 후 수동 안내"""
         try:
             print(f"📝 글 작성 시작: {title}")
-
-            # 알림창 처리
-            try:
-                alert = self.driver.switch_to.alert
-                alert.accept()
-                print("✅ 알림창 닫기 완료")
-            except:
-                pass  # 알림창이 없는 경우
-
             try:
                 # 제목 입력 시도
                 print("🔍 제목 입력 필드 찾는 중...")

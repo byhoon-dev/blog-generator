@@ -139,5 +139,24 @@ DEFAULT_SAVE_PATH=./generated_posts
     with open(os.path.join(folder, "사용법.txt"), "w", encoding="utf-8") as f:
         f.write(guide_content)
 
+def create_deployment_requirements():
+    """배포용 requirements.txt 생성"""
+    deployment_requirements = """
+# 배포용 고정 버전 의존성
+PyQt5==5.15.9
+google-generativeai==0.3.2
+requests==2.31.0
+selenium==4.15.2
+webdriver-manager==4.0.1
+python-dotenv==1.0.0
+psutil==5.9.6
+"""
+    
+    with open("requirements_deployment.txt", "w", encoding="utf-8") as f:
+        f.write(deployment_requirements)
+    
+    print("✅ 배포용 requirements.txt 생성 완료")
+
 if __name__ == "__main__":
+    create_deployment_requirements()
     build_exe()
