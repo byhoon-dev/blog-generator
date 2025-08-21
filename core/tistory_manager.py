@@ -102,8 +102,14 @@ class TistoryManager:
                 write_button = write_buttons[0]
                 print("📝 글쓰기 버튼 발견, 클릭 중...")
                 write_button.click()
-                time.sleep(3)
-            
+                
+                WebDriverWait(self.driver, 10).until(
+                    lambda driver: len(driver.window_handles) > initial_window_count
+                )
+                
+                new_window = self.driver.window_handles[-1]
+                self.driver.switch_to.window(new_window)
+                
                 print("✅ 글쓰기 페이지로 이동 완료")
             else:
                 print("⚠️ 글쓰기 버튼을 찾을 수 없습니다.")
@@ -112,25 +118,10 @@ class TistoryManager:
             print("⚠️ 글쓰기 버튼을 찾을 수 없습니다.")
             return False
         
-        # 새창 뜰때까지 대기
-        try:
-            WebDriverWait(self.driver, 10).until(
-                lambda driver: len(driver.window_handles) > initial_window_count
-            )
-
-            new_window = self.driver.window_handles[-1]
-            self.driver.switch_to.window(new_window)
-        except Exception as e:
-            print(f"⚠️ 새창 찾기 실패: {e}")
-            return False
-
         try:
             # 알림창이 있는지 확인
             alert = WebDriverWait(self.driver, 3).until(EC.alert_is_present())
             print("⚠️ 알림창 발견, 닫는 중...")
-            # 알림창 텍스트 출력
-            alert_text = alert.text
-            print(f"알림창 내용: {alert_text}")
             # 알림창 닫기
             alert.dismiss()
             print("✅ 알림창 닫기 완료")
@@ -138,161 +129,138 @@ class TistoryManager:
             print("ℹ️ 알림창 없음, 계속 진행합니다.")
             pass
 
+        return True
+
     def write_post(self, title, content, category=""):
         """글 작성 - 자동 입력 시도 후 수동 안내"""
+        print(f"📝 글 작성 시작: {title}")
         try:
-            print(f"📝 글 작성 시작: {title}")
+            # 제목 입력 시도
+            print("🔍 제목 입력 필드 찾는 중...")
+            title_input = None
             try:
-                # 제목 입력 시도
-                print("🔍 제목 입력 필드 찾는 중...")
-                title_input = None
-                try:
-                    title_input = WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "#post-title-inp"))
-                    )
-                    print("✅ 제목 필드 발견: #post-title-inp")
-                except Exception as e:
-                    print(f"⚠️ 제목 필드 찾기 실패: {e}")
-                    return
-                
-                if title_input:
-                    title_input.clear()
-                    title_input.send_keys(title)
-                    print("✅ 제목 입력 완료")
-                else:
-                    print("⚠️ 제목 입력 필드를 찾을 수 없습니다.")
-                    return
-                
-                # 내용 입력 시도
-                print("🔍 내용 입력 영역 찾는 중...")
-                content_input = None
-                try:
-                    # iframe 요소 찾기
-                    iframe = WebDriverWait(self.driver, 5).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "iframe#editor-tistory_ifr")) 
-                    )
-
-                    # iframe으로 전환
-                    self.driver.switch_to.frame(iframe)
-
-                    content_input = WebDriverWait(self.driver, 3).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "#tinymce p"))
-                    )
-                    print("✅ 내용 필드 발견: #tinymce p")
-                except:
-                    print("⚠️ 내용 입력 필드를 찾을 수 없습니다.")
-                    return
-            
-                if content_input:
-                    content_input.clear()
-                    content_input.send_keys(content)
-                    print("✅ 내용 입력 완료")
-                    
-                    # iframe에서 나오기
-                    self.driver.switch_to.default_content()
-                else:
-                    print("⚠️ 내용 입력 영역을 찾을 수 없습니다.")
-                    return
-                
-                print("🎯 자동 입력 완료! 발행 버튼을 직접 클릭하세요.")
-                return True
-                
+                title_input = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "#post-title-inp"))
+                )
+                print("✅ 제목 필드 발견: #post-title-inp")
             except Exception as e:
-                print(f"⚠️ 자동 입력 실패: {e}")
-                return True
+                print(f"⚠️ 제목 필드 찾기 실패: {e}")
+                return
+            
+            if title_input:
+                title_input.clear()
+                title_input.send_keys(title)
+                print("✅ 제목 입력 완료")
+            else:
+                print("⚠️ 제목 입력 필드를 찾을 수 없습니다.")
+                return
+            
+            # 내용 입력 시도 - 마크다운
+            print("🔍 마크다운 에디터 찾는 중...")
+            
+            try:
+                # 마크다운 에디터에 직접 내용 설정
+                script = "document.querySelector('#markdown-editor-container .CodeMirror-code').innerText = arguments[0];"
+                self.driver.execute_script(script, content)
+                print("✅ 마크다운 에디터 내용 입력 성공")
                 
+            except Exception as editor_error:
+                print(f"⚠️ 마크다운 에디터 처리 중 오류: {str(editor_error)}")
+                return False
+
+            return True
+            
         except Exception as e:
-            print(f"글 작성 오류: {e}")
+            print(f"⚠️ 자동 입력 실패: {e}")
             return False
 
-    def publish_post(self):
-        """글 발행 - 자동 발행 시도"""
+
+    def publish_post(self, date: str = None, hour: int = None, minute: int = None):
+        # 발행일 설정
         try:
-            print("🚀 발행 시도 중...")
+            # 예약 버튼 클릭
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".info_editor.info_editor_type2 .btn_date:not(.on)"))
+            ).click()
             
-            # Selenium 드라이버 사용 중인 경우 - 발행 버튼 찾기
+            # 날짜 입력
+            date_input = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".btn_reserve"))
+            )
+            hour_input = WebDriverWait(self.driver, 3).until(
+                EC.presence_of_element_located((By.ID, "dateHour"))
+            )
+            minute_input = WebDriverWait(self.driver, 3).until(
+                EC.presence_of_element_located((By.ID, "dateMinute"))
+            )
+            
+            # 날짜 유효성 검사
+            if not re.match(r'^\d{4}-\d{2}-\d{2}$', date):
+                raise ValueError("날짜 형식 오류: YYYY-MM-DD 형식으로 입력해주세요")
+            
+            # 값 설정
+            self.driver.execute_script("arguments[0].innerText = arguments[1]", date_input, date)
+            self.driver.execute_script("arguments[0].value = arguments[1]", hour_input, str(max(0, min(23, hour))))
+            self.driver.execute_script("arguments[0].value = arguments[1]", minute_input, str(max(0, min(59, minute))))
+            
+            print(f"✅ 발행일 설정 완료: {date} {hour}:{minute}")
+            time.sleep(1)
+            
+        except Exception as date_error:
+            print(f"⚠️ 발행일 설정 오류: {str(date_error)}")
+                
+        # 기본 발행 로직
+        """글 발행 - 자동 발행 시도"""
+        print("🚀 발행 시도 중...")
+        try:
+            # 완료 버튼
+            complete_button = WebDriverWait(self.driver, 5).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "#publish-layer-btn"))
+            )
+            complete_button.click()
+            print("✅ 완료 버튼 클릭 완료!")
+            time.sleep(2)
+            
+            # 공개 설정
             try:
-                # 1. 먼저 완료 버튼 클릭 (#publish-layer-btn)
-                try:
-                    complete_button = WebDriverWait(self.driver, 5).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, "#publish-layer-btn"))
+                # 팝업 내 공개 설정 영역 찾기
+                popup_items = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".info_editor.info_editor_type2 .inp_item"))
+                )
+                
+                if len(popup_items) >= 1:
+                    # 첫 번째 항목이 공개 설정
+                    open_radio = WebDriverWait(popup_items[0], 3).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, "#open20"))
                     )
-                    complete_button.click()
-                    print("✅ 완료 버튼 클릭 완료!")
-                    time.sleep(2)
-                    
-                    # 2. 공개 설정 (팝업에서 #open20 라디오 버튼 클릭)
-                    try:
-                        # 팝업 내 공개 설정 영역 찾기
-                        popup_items = WebDriverWait(self.driver, 5).until(
-                            EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".info_editor.info_editor_type2 .inp_item"))
-                        )
-                        
-                        if len(popup_items) >= 1:
-                            # 첫 번째 항목이 공개 설정
-                            open_radio = WebDriverWait(popup_items[0], 3).until(
-                                EC.element_to_be_clickable((By.CSS_SELECTOR, "#open20"))
-                            )
-                            open_radio.click()
-                            print("✅ 공개 설정 완료!")
-                            
-                            # 3. 발행일 설정 (세 번째 항목의 두 번째 버튼 클릭)
-                            if len(popup_items) >= 3:
-                                date_buttons = popup_items[2].find_elements(By.TAG_NAME, "button")
-                                if len(date_buttons) >= 2:
-                                    date_buttons[1].click()
-                                    print("✅ 발행일 설정 완료!")
-                    except Exception as e:
-                        print(f"⚠️ 공개 설정 실패: {e}")
-                    
-                    # 4. 최종 발행 버튼 클릭 (#publish-btn)
-                    try:
-                        final_publish_button = WebDriverWait(self.driver, 5).until(
-                            EC.element_to_be_clickable((By.CSS_SELECTOR, "#publish-btn"))
-                        )
-                        final_publish_button.click()
-                        print("✅ 발행 버튼 클릭 완료!")
-                        time.sleep(2)
-                        return True
-                    except Exception as e:
-                        print(f"⚠️ 최종 발행 버튼 클릭 실패: {e}")
-                        
-                except Exception as e:
-                    print(f"⚠️ 완료 버튼 클릭 실패: {e}")
+                    open_radio.click()
+                    print("✅ 공개 설정 완료!")
                 
-                # 기존 방식으로 폴백
-                publish_selectors = [
-                    "#publish-btn",  # 사용자가 제공한 정확한 ID
-                ]
                 
-                publish_button = None
-                try:
-                    # XPath로 텍스트 포함 검색
-                    xpath = f"//button[contains(text(), '발행')] | //button[contains(text(), '저장')]"
-                    publish_button = WebDriverWait(self.driver, 3).until(
-                        EC.element_to_be_clickable((By.XPATH, xpath))
-                    )
-                    print("✅ 발행 버튼 발견: XPath 사용")
-                except:
-                    print("발행에 실패하였습니다.")
-                    return
-                
-                if publish_button:
-                    publish_button.click()
-                    print("✅ 발행 버튼 클릭 완료!")
-                    time.sleep(2)
-                    return True
-                else:
-                    print("⚠️ 발행 버튼을 찾을 수 없습니다. 수동으로 클릭하세요.")
-                    return True
-                    
+                # 발행일 설정
+                if len(popup_items) >= 3:
+                    date_buttons = popup_items[2].find_elements(By.TAG_NAME, "button")
+                    if len(date_buttons) >= 2:
+                        date_buttons[1].click()
+                        print("✅ 발행일 설정 완료!")
             except Exception as e:
-                print(f"⚠️ 자동 발행 실패: {e}")
-                print("📱 수동으로 발행 버튼을 클릭하세요.")
+                print(f"⚠️ 공개 설정 실패: {e}")
+            
+            # 공개 발행 버튼 클릭
+            try:
+                publish_button = WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "#publish-btn"))
+                )
+                publish_button.click()
+                print("✅ 발행 버튼 클릭 완료!")
+                time.sleep(2)
                 return True
-                
+            except Exception as e:
+                print(f"⚠️ 최종 발행 버튼 클릭 실패: {e}")
+            
         except Exception as e:
-            print(f"발행 오류: {e}")
+            print(f"⚠️ 자동 발행 실패: {e}")
+            print("📱 수동으로 발행 버튼을 클릭하세요.")
             return False
 
     def close_driver(self):

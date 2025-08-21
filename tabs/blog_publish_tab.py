@@ -431,7 +431,7 @@ class BlogPublishTab(QWidget):
         file_paths = [file_path for file_path, _ in files_to_publish]
         
         # 티스토리 발행 워커 시작
-        self.publish_worker = TistoryPublishWorker(self.tistory_manager, file_paths)
+        self.publish_worker = TistoryPublishWorker(self.tistory_manager, file_paths, self)
         self.publish_worker.progress_updated.connect(lambda val: self.parent.progress_bar.setValue(val) if hasattr(self.parent, 'progress_bar') else None)
         self.publish_worker.publish_completed.connect(self.on_publish_completed)
         self.publish_worker.publish_failed.connect(self.on_publish_failed)

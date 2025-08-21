@@ -14,7 +14,10 @@ from datetime import datetime
 from PyQt5.QtCore import QThread, pyqtSignal
 import google.generativeai as genai
 from selenium.webdriver.common.by import By
-
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, UnexpectedAlertPresentException
+import time
 
 class NaverSearchWorker(QThread):
     """네이버 블로그 검색 워커"""
@@ -176,17 +179,16 @@ class TistoryPublishWorker(QThread):
     progress_updated = pyqtSignal(int)
     all_completed = pyqtSignal()
 
-    def __init__(self, tistory_manager, files_to_publish, blog_url="", category=""):
+    def __init__(self, tistory_manager, files_to_publish, tab, blog_url="", category=""):
         super().__init__()
         self.tistory_manager = tistory_manager
         self.files_to_publish = files_to_publish
+        self.tab = tab
         self.blog_url = blog_url
         self.category = category
 
     def run(self):
         """발행 실행 - 각 파일마다 브라우저에서 글쓰기 페이지 열기"""
-        import time
-        
         completed_count = 0
         total_files = len(self.files_to_publish)
         
@@ -247,8 +249,6 @@ class TistoryPublishWorker(QThread):
     def open_write_page(self, title, content):
         """글쓰기 버튼 클릭하고 자동 작성 시도"""
         try:
-            import time
-            
             # 글쓰기 버튼 클릭
             if not self.tistory_manager.go_to_write_page():
                 return False
@@ -256,24 +256,38 @@ class TistoryPublishWorker(QThread):
             dropdown_btn = self.tistory_manager.driver.find_element(By.CSS_SELECTOR, "#editor-mode-layer-btn-open")
             dropdown_btn.click()
 
-            time.sleep(1)  
+            time.sleep(2)  
 
+            # 마크다운 모드 버튼 클릭 시 알림창 처리를 위한 try-except 블록
             layout_btn = self.tistory_manager.driver.find_element(By.CSS_SELECTOR, "#editor-mode-markdown-text")
+            print("🖱️ 마크다운 모드 버튼 클릭")
             layout_btn.click()
-
+            
+            # 클릭 후 알림창이 나타날 시간을 충분히 대기
             time.sleep(2)
-
-            """알림창 확인(작성 모드를 변경하시겠습니까? 팝업)"""
-            try:
-                # 알림창이 있는지 확인
-                alert = WebDriverWait(self.tistory_manager.driver, 5).until(EC.alert_is_present())
-                print("⚠️ 알림창 발견, 닫는 중...")
-                # 알림창 닫기
-                alert.accept()
-                print("✅ 알림창 닫기 완료")
-            except Exception as e:
-                print("ℹ️ 알림창 없음, 계속 진행합니다.")
-                pass
+            
+            print("🔍 알림창 확인 및 처리 중...")
+            
+            # 알림창 확인 및 처리 (클릭 후 나타날 수 있는 알림창)
+            for attempt in range(3):  # 최대 3번 시도
+                try:
+                    print(f"🔍 알림창 확인 시도 {attempt + 1}/3")
+                    # WebDriverWait로 알림창 대기 (2초)
+                    alert = WebDriverWait(self.tistory_manager.driver, 2).until(EC.alert_is_present())
+                    alert_text = alert.text
+                    print(f"⚠️ 알림창 발견: '{alert_text}'")
+                    alert.accept()
+                    print("✅ 알림창 닫기 완료")
+                    break
+                except TimeoutException:
+                    print(f"ℹ️ 시도 {attempt + 1}: 알림창 없음")
+                    if attempt == 2:  # 마지막 시도
+                        print("ℹ️ 알림창이 없는 것으로 확인, 계속 진행합니다.")
+                except Exception as e:
+                    print(f"⚠️ 알림창 처리 중 오류 (시도 {attempt + 1}): {type(e).__name__}: {str(e)}")
+                    time.sleep(1)  # 1초 대기 후 재시도
+            
+            time.sleep(2)
 
             # 클립보드에 내용 복사
             try:
@@ -284,21 +298,20 @@ class TistoryPublishWorker(QThread):
                 print("📋 클립보드 복사 기능 없음")
 
             # 자동 글 작성 시도
-            if self.tistory_manager.write_post(title, content, self.category):
-                print("✅ 글 작성 완료!")
-                
-                import time
-                time.sleep(2)
-                
-                print("🚀 자동 발행 시도 중...")
-                if self.tistory_manager.publish_post():
-                    print("🎉 자동 발행 완료!")
-                else:
-                    print("⚠️ 수동으로 발행 버튼을 클릭하세요.")
-            else:
-                print("⚠️ 자동 작성 실패 - 수동으로 진행하세요.")
-                print("📋 클립보드에서 내용을 붙여넣기 (Ctrl+V)")
+            if not self.tistory_manager.write_post(title, content, self.category):
+                print("자동 작성 실패")
                 return False
+
+            time.sleep(2)
+            
+            print("🚀 자동 발행 시도 중...")
+            # GUI에서 날짜/시간 값 파싱
+            publish_date = self.tab.get_publish_date()  # YYYY-MM-DD
+            publish_hour = self.tab.get_publish_hour()  # 0-23
+            publish_minute = self.tab.get_publish_minute()  # 0-59
+            
+            if self.tistory_manager.publish_post(publish_date, publish_hour, publish_minute):
+                print("🎉 자동 발행 완료!")
             return True
             
         except Exception as e:
